@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ds_ta
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/ds_ta?schema=public
+      AUTH0_DOMAIN: dev-7c2ks2xbskvgaaok.us.auth0.com
+      AUTH0_AUDIENCE: https://ds-ta-api
+      AUTH0_ISSUER_URL: https://dev-7c2ks2xbskvgaaok.us.auth0.com/
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    command: ["sh", "-c", "pnpm prisma migrate deploy && node dist/src/main.js"]
+
+  frontend:
+    build: ../ds-ta-web-app
+    environment:
+      APP_BASE_URL: http://localhost:3001
+      BACKEND_URL: http://api:3000
+      AUTH0_DOMAIN: dev-7c2ks2xbskvgaaok.us.auth0.com
+      AUTH0_CLIENT_ID: bjDxi3uvhDiCyixxkAI3kqHrRizYHr3w
+      AUTH0_CLIENT_SECRET: ${AUTH0_CLIENT_SECRET}
+      AUTH0_SECRET: ${AUTH0_SECRET}
+      AUTH0_AUDIENCE: https://ds-ta-api
+    ports:
+      - "3001:3000"
+    depends_on:
+      - api
+
+volumes:
+  db_data:

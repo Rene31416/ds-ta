@@ -55,6 +55,79 @@ If you need a clean DB, drop and recreate it before running migrations.
 pnpm run start:dev
 ```
 
+## Docker
+
+### Clone repos (required for Docker compose)
+
+Docker expects the backend and frontend repos to be siblings:
+
+```
+git clone https://github.com/Rene31416/ds-ta.git
+git clone https://github.com/Rene31416/ds-ta-web-app.git
+
+ls
+ds-ta
+ds-ta-web-app
+```
+
+### Run with Docker compose
+
+From inside `ds-ta`:
+
+```
+docker compose up --build
+```
+
+Notes:
+- Set the required environment variables before running Docker (see below).
+- Database data is stored in the `db_data` volume.
+
+### Docker env vars
+
+Export these before `docker compose up --build`:
+
+```
+GOOGLE_CLIENT_ID="..."
+GOOGLE_CLIENT_SECRET="..."
+GOOGLE_REDIRECT_URI="http://localhost:3001/auth/google/callback"
+ENCRYPTION_KEY="base64-32-bytes"
+AUTH0_CLIENT_SECRET="..."
+AUTH0_SECRET="hex-64-or-32-bytes"
+```
+
+Defaults already wired in `docker-compose.yml`:
+
+```
+AUTH0_DOMAIN="dev-7c2ks2xbskvgaaok.us.auth0.com"
+AUTH0_AUDIENCE="https://ds-ta-api"
+AUTH0_ISSUER_URL="https://dev-7c2ks2xbskvgaaok.us.auth0.com/"
+DATABASE_URL="postgresql://postgres:postgres@db:5432/ds_ta?schema=public"
+```
+
+Generate secrets:
+
+```
+openssl rand -base64 32   # ENCRYPTION_KEY
+openssl rand -hex 32      # AUTH0_SECRET
+```
+
+### Auth0 configuration
+
+Application (Regular Web App):
+- Allowed Callback URLs: `http://localhost:3001/api/auth/callback`
+- Allowed Logout URLs: `http://localhost:3001`
+- Allowed Web Origins: `http://localhost:3001`
+
+API:
+- Identifier (Audience): `https://ds-ta-api`
+- Signing Algorithm: `RS256`
+
+### Google OAuth configuration
+
+In Google Cloud Console → OAuth Client:
+- Authorized redirect URIs:
+  - `http://localhost:3001/auth/google/callback`
+
 ## Auth flow
 
 1) Get an Auth0 access token (audience must be `AUTH0_AUDIENCE`).
