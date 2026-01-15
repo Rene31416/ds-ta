@@ -5,23 +5,28 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Reservation } from 'generated/prisma/client';
+import { GoogleCalendarService } from 'src/google/google-calendar.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { UpdateReservationDto } from './dto/update-reservation.dto';
 
 @Injectable()
 export class ReservationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private googleCalendar: GoogleCalendarService,
+  ) {}
 
-  async list(): Promise<Reservation[]> {
+  async list(userId: number): Promise<Reservation[]> {
     return this.prisma.reservation.findMany({
+      where: { userId },
       orderBy: { startAt: 'asc' },
     });
   }
 
-  async getById(id: number): Promise<Reservation> {
-    const reservation = await this.prisma.reservation.findUnique({
-      where: { id },
+  async getById(userId: number, id: number): Promise<Reservation> {
+    const reservation = await this.prisma.reservation.findFirst({
+      where: { id, userId },
     });
     if (!reservation) {
       throw new NotFoundException('Reservation not found');
@@ -29,25 +34,34 @@ export class ReservationsService {
     return reservation;
   }
 
-  async create(data: CreateReservationDto): Promise<Reservation> {
+  async create(
+    userId: number,
+    data: CreateReservationDto,
+  ): Promise<Reservation> {
     const startAt = this.parseDate(data.startAt, 'startAt');
     const endAt = this.parseDate(data.endAt, 'endAt');
     this.assertValidRange(startAt, endAt);
 
     await this.assertNoConflict(startAt, endAt);
+    await this.assertGoogleCalendarAvailability(userId, startAt, endAt);
 
     return this.prisma.reservation.create({
       data: {
         name: data.name,
         startAt,
         endAt,
+        userId,
       },
     });
   }
 
-  async update(id: number, data: UpdateReservationDto): Promise<Reservation> {
-    const existing = await this.prisma.reservation.findUnique({
-      where: { id },
+  async update(
+    userId: number,
+    id: number,
+    data: UpdateReservationDto,
+  ): Promise<Reservation> {
+    const existing = await this.prisma.reservation.findFirst({
+      where: { id, userId },
     });
     if (!existing) {
       throw new NotFoundException('Reservation not found');
@@ -62,6 +76,7 @@ export class ReservationsService {
 
     this.assertValidRange(startAt, endAt);
     await this.assertNoConflict(startAt, endAt, id);
+    await this.assertGoogleCalendarAvailability(userId, startAt, endAt);
 
     return this.prisma.reservation.update({
       where: { id },
@@ -73,9 +88,9 @@ export class ReservationsService {
     });
   }
 
-  async remove(id: number): Promise<Reservation> {
-    const existing = await this.prisma.reservation.findUnique({
-      where: { id },
+  async remove(userId: number, id: number): Promise<Reservation> {
+    const existing = await this.prisma.reservation.findFirst({
+      where: { id, userId },
     });
     if (!existing) {
       throw new NotFoundException('Reservation not found');
@@ -117,6 +132,21 @@ export class ReservationsService {
       throw new ConflictException(
         `Conflicts with existing reservation ${conflict.id}`,
       );
+    }
+  }
+
+  private async assertGoogleCalendarAvailability(
+    userId: number,
+    startAt: Date,
+    endAt: Date,
+  ): Promise<void> {
+    const hasConflict = await this.googleCalendar.hasConflict(
+      userId,
+      startAt,
+      endAt,
+    );
+    if (hasConflict) {
+      throw new ConflictException('Conflicts with Google Calendar event');
     }
   }
 }
