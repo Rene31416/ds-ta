@@ -13,6 +13,7 @@ export class AuthService {
   ) {}
 
   getGoogleAuthUrl() {
+    // Build Google OAuth URL for the frontend redirect.
     const oauthClient = this.googleService.createOAuthClient();
     return oauthClient.generateAuthUrl({
       access_type: 'offline',
@@ -31,6 +32,7 @@ export class AuthService {
       throw new BadRequestException('Authorization code is required');
     }
 
+    // Exchange the Google code for tokens.
     const oauthClient = this.googleService.createOAuthClient();
     const { tokens } = await oauthClient.getToken(code);
 
@@ -46,6 +48,7 @@ export class AuthService {
       throw new BadRequestException('Google account missing id or email');
     }
 
+    // Store Google identity on the existing Auth0 user.
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
@@ -82,6 +85,7 @@ export class AuthService {
       ? new Date(tokens.expiry_date)
       : existingToken?.expiryDate ?? null;
 
+    // Save encrypted Google tokens for later Calendar checks.
     await this.prisma.googleToken.upsert({
       where: { userId: user.id },
       create: {

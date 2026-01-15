@@ -10,6 +10,7 @@ export class PrismaService extends PrismaClient {
     if (!connectionString) {
       throw new Error('DATABASE_URL is required');
     }
+    // Use Postgres adapter with the DATABASE_URL connection string.
     const pool = new Pool({ connectionString });
     const adapter = new PrismaPg(pool);
     super({ adapter });

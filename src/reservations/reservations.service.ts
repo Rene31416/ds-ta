@@ -42,6 +42,7 @@ export class ReservationsService {
     const endAt = this.parseDate(data.endAt, 'endAt');
     this.assertValidRange(startAt, endAt);
 
+    // Check local DB conflicts first, then Google Calendar.
     await this.assertNoConflict(startAt, endAt);
     await this.assertGoogleCalendarAvailability(userId, startAt, endAt);
 
@@ -120,6 +121,7 @@ export class ReservationsService {
     endAt: Date,
     excludeId?: number,
   ): Promise<void> {
+    // Overlap rule: existing.startAt < endAt AND existing.endAt > startAt
     const conflict = await this.prisma.reservation.findFirst({
       where: {
         id: excludeId ? { not: excludeId } : undefined,

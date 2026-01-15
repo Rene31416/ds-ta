@@ -20,6 +20,7 @@ export class Auth0JwtGuard implements CanActivate {
   private jwks: ReturnType<typeof createRemoteJWKSet>;
 
   constructor(private prisma: PrismaService) {
+    // Load Auth0 public keys so we can validate JWTs.
     this.jwks = createRemoteJWKSet(
       new URL(`${this.getIssuerUrl()}.well-known/jwks.json`),
     );
@@ -49,6 +50,7 @@ export class Auth0JwtGuard implements CanActivate {
 
     let payload: Auth0Claims;
     try {
+      // Validate token signature + issuer + audience.
       const verified = await jwtVerify(token, this.jwks, {
         issuer: issuerUrl,
         audience,
@@ -62,6 +64,7 @@ export class Auth0JwtGuard implements CanActivate {
       throw new UnauthorizedException('Invalid token payload');
     }
 
+    // Ensure we have a local user linked to this Auth0 subject.
     const user = await this.prisma.user.upsert({
       where: { auth0Id: payload.sub },
       create: {
@@ -75,6 +78,7 @@ export class Auth0JwtGuard implements CanActivate {
       },
     });
 
+    // Attach the user to the request for controllers.
     request.user = {
       id: user.id,
       auth0Id: user.auth0Id,
@@ -85,6 +89,7 @@ export class Auth0JwtGuard implements CanActivate {
   }
 
   private getIssuerUrl(): string {
+    // Accept domain or full issuer URL.
     const issuerUrl =
       process.env.AUTH0_ISSUER_URL ?? process.env.AUTH0_DOMAIN;
     if (!issuerUrl) {

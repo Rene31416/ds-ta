@@ -12,6 +12,7 @@ export class GoogleCalendarService {
   ) {}
 
   private async getAuthorizedClient(userId: number) {
+    // Load stored Google tokens for this user.
     const token = await this.prisma.googleToken.findUnique({
       where: { userId },
     });
@@ -23,6 +24,7 @@ export class GoogleCalendarService {
     let accessToken: string;
     let refreshToken: string;
     try {
+      // Decrypt tokens before using them.
       accessToken = decrypt(token.accessToken);
       refreshToken = decrypt(token.refreshToken);
     } catch (error) {
@@ -40,6 +42,7 @@ export class GoogleCalendarService {
 
     if (token.expiryDate && token.expiryDate.getTime() <= Date.now() - 60_000) {
       try {
+        // Refresh access token if needed.
         const refreshed = await client.refreshAccessToken();
         const credentials = refreshed.credentials;
         await this.prisma.googleToken.update({
@@ -64,6 +67,7 @@ export class GoogleCalendarService {
     startAt: Date,
     endAt: Date,
   ): Promise<boolean> {
+    // Check for any Calendar events overlapping this time range.
     const auth = await this.getAuthorizedClient(userId);
     const calendar = google.calendar({ version: 'v3', auth });
     const response = await calendar.events.list({

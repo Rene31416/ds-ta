@@ -1,19 +1,36 @@
-# Reservations API (NestJS + Prisma + SQLite)
+# Reservations API (NestJS + Prisma + Postgres)
 
-Backend for creating and managing time slot reservations with conflict checks.
+Backend for creating and managing time slot reservations with conflict checks
+against existing reservations and Google Calendar events. Auth is handled by
+Auth0 JWTs, and Google Calendar is connected per user via OAuth.
 
 ## Requirements
 
 - Node.js + pnpm
-- SQLite (via better-sqlite3)
+- Postgres
+- Auth0 tenant (API + application)
+- Google OAuth client (for Calendar access)
 
 ## Environment
 
-Set `DATABASE_URL` to your SQLite path, for example:
+Create a `.env` file with the following variables:
 
 ```
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ds_ta?schema=public"
+AUTH0_DOMAIN="dev-xxxx.us.auth0.com"
+AUTH0_AUDIENCE="https://ds-ta-api"
+AUTH0_ISSUER_URL="https://dev-xxxx.us.auth0.com/"
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+GOOGLE_REDIRECT_URI="http://localhost:3010/auth/google/callback"
+ENCRYPTION_KEY="base64-32-bytes"
 ```
+
+Notes:
+- `AUTH0_AUDIENCE` is the Identifier of your Auth0 API.
+- `AUTH0_ISSUER_URL` should include a trailing slash.
+- `ENCRYPTION_KEY` must be 32 bytes (base64 or hex). Generate with
+  `openssl rand -base64 32`.
 
 ## Install
 
@@ -23,19 +40,14 @@ pnpm install
 
 ## Prisma (migrations)
 
-This project uses Prisma with SQLite. Use the commands below to update the DB
-after schema changes:
+This project uses Prisma with Postgres. Apply migrations with:
 
 ```
-pnpm prisma migrate dev --name init-reservations
+pnpm prisma migrate dev --name init
 pnpm prisma generate
 ```
 
-If you need a clean DB:
-
-```
-rm -f dev.db
-```
+If you need a clean DB, drop and recreate it before running migrations.
 
 ## Run
 
@@ -43,7 +55,23 @@ rm -f dev.db
 pnpm run start:dev
 ```
 
+## Auth flow
+
+1) Get an Auth0 access token (audience must be `AUTH0_AUDIENCE`).
+2) Call `GET /auth/me` with `Authorization: Bearer <token>`.
+3) Connect Google Calendar:
+   - `GET /auth/google/url`
+   - Finish Google OAuth and send `{ code }` to `POST /auth/google` with the
+     Auth0 token.
+4) Create reservations; Google Calendar conflicts are checked on create/update.
+
 ## API
+
+All endpoints below require:
+
+```
+Authorization: Bearer <AUTH0_ACCESS_TOKEN>
+```
 
 ### Create reservation
 
@@ -94,3 +122,6 @@ A reservation conflicts when:
 ```
 existing.startAt < newEndAt AND existing.endAt > newStartAt
 ```
+
+Google Calendar conflicts are detected by listing events in the same
+time window on the user's primary calendar.
