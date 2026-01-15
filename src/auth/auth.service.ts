@@ -1,15 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { google } from 'googleapis';
 import { GoogleService } from 'src/google/google.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { decrypt, encrypt } from 'src/security/crypto';
+import { AuthUser } from './auth.types';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
-    private jwtService: JwtService,
     private googleService: GoogleService,
   ) {}
 
@@ -27,7 +26,7 @@ export class AuthService {
     });
   }
 
-  async loginWithGoogle(code: string) {
+  async connectGoogle(user: AuthUser, code: string) {
     if (!code) {
       throw new BadRequestException('Authorization code is required');
     }
@@ -47,14 +46,10 @@ export class AuthService {
       throw new BadRequestException('Google account missing id or email');
     }
 
-    const user = await this.prisma.user.upsert({
-      where: { googleId: data.id },
-      create: {
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
         googleId: data.id,
-        email: data.email,
-        name: data.name ?? null,
-      },
-      update: {
         email: data.email,
         name: data.name ?? null,
       },
@@ -106,19 +101,7 @@ export class AuthService {
       },
     });
 
-    const jwt = await this.jwtService.signAsync({
-      sub: user.id,
-      email: user.email,
-    });
-
-    return {
-      accessToken: jwt,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-      },
-    };
+    return { ok: true };
   }
 
   async getUser(userId: number) {

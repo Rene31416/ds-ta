@@ -12,14 +12,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { Auth0JwtGuard } from 'src/auth/auth0-jwt.guard';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { UpdateReservationDto } from './dto/update-reservation.dto';
 import { ReservationsService } from './reservations.service';
 
 type AuthenticatedRequest = Request & { user?: { id: number } };
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(Auth0JwtGuard)
 @Controller('reservations')
 export class ReservationsController {
   constructor(private readonly reservationsService: ReservationsService) {}
