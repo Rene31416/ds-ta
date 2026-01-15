@@ -14,13 +14,39 @@ datasource db {
   provider = "sqlite"
 }
 
+model User {
+  id           Int           @id @default(autoincrement())
+  email        String        @unique
+  name         String?
+  googleId     String        @unique
+  reservations Reservation[]
+  googleToken  GoogleToken?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
 
+model GoogleToken {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @unique
+  accessToken  String
+  refreshToken String
+  scope        String?
+  tokenType    String?
+  expiryDate   DateTime?
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
 
 model Reservation {
   id        Int      @id @default(autoincrement())
   name      String
   startAt   DateTime
   endAt     DateTime
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
